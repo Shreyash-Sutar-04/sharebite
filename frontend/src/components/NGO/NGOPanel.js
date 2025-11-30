@@ -1,0 +1,245 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Grid,
+  Paper,
+  Typography,
+  ToggleButtonGroup,
+  ToggleButton,
+  Card,
+  CardContent,
+  CardActions,
+  Chip,
+  Stack,
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+} from '@mui/material';
+import { VolunteerActivism, Agriculture, Pets } from '@mui/icons-material';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import { useSnackbar } from 'notistack';
+import api from '../../utils/api';
+import PanelLayout from '../Layout/PanelLayout';
+import StatCard from '../Common/StatCard';
+import { useAuth } from '../../context/AuthContext';
+
+dayjs.extend(relativeTime);
+
+const donationFilters = [
+  { value: 'HUMAN', label: 'Human', icon: <VolunteerActivism fontSize="small" /> },
+  { value: 'DOG', label: 'Dogs', icon: <Pets fontSize="small" /> },
+  { value: 'COMPOST', label: 'Compost', icon: <Agriculture fontSize="small" /> },
+];
+
+const NGOPanel = () => {
+  const { user } = useAuth();
+  const [availableDonations, setAvailableDonations] = useState([]);
+  const [myRequests, setMyRequests] = useState([]);
+  const [selectedType, setSelectedType] = useState('HUMAN');
+  const { enqueueSnackbar } = useSnackbar();
+
+  useEffect(() => {
+    loadAvailableDonations();
+  }, [selectedType]);
+
+  useEffect(() => {
+    loadMyRequests();
+  }, []);
+
+  const loadAvailableDonations = async () => {
+    try {
+      const response = await api.get(`/donations/available/${selectedType}`);
+      setAvailableDonations(response.data);
+    } catch (err) {
+      enqueueSnackbar('Unable to fetch donations at the moment.', { variant: 'error' });
+    }
+  };
+
+  const loadMyRequests = async () => {
+    try {
+      const response = await api.get(`/requests/requester/${user.userId}`);
+      setMyRequests(response.data);
+    } catch (err) {
+      enqueueSnackbar('Unable to load your request history.', { variant: 'error' });
+    }
+  };
+
+  const handleRequestDonation = async (donationId) => {
+    try {
+      await api.post(
+        `/requests?donationId=${donationId}&requesterId=${user.userId}&requesterType=NGO`
+      );
+      enqueueSnackbar('Request submitted. A volunteer will be assigned shortly.', { variant: 'success' });
+      loadAvailableDonations();
+      loadMyRequests();
+    } catch (err) {
+      enqueueSnackbar('Request failed. This donation may already be assigned.', { variant: 'error' });
+    }
+  };
+
+  const stats = useMemo(
+    () => [
+      { label: 'Open requests', value: myRequests.filter((r) => r.status !== 'DELIVERED').length },
+      { label: 'Delivered meals', value: myRequests.filter((r) => r.status === 'DELIVERED').length },
+      { label: 'Available donations', value: availableDonations.length },
+    ],
+    [availableDonations.length, myRequests]
+  );
+
+  const statusColor = (status) => {
+    switch (status) {
+      case 'DELIVERED':
+        return 'success';
+      case 'PENDING':
+        return 'warning';
+      default:
+        return 'info';
+    }
+  };
+
+  return (
+    <PanelLayout
+      title="NGO Operations Hub"
+      subtitle="Match surplus meals with shelters, missions, and feeding drives."
+    >
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={4}>
+          <StatCard label="Open requests" value={stats[0].value} icon={<VolunteerActivism />} />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <StatCard label="Delivered meals" value={stats[1].value} icon={<Pets />} color="secondary" />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <StatCard label="Available donations" value={stats[2].value} icon={<Agriculture />} />
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={7}>
+          <Paper elevation={0} sx={{ p: 3 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+              <div>
+                <Typography variant="h6">Nearby donations</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Choose the food quality that matches your beneficiaries.
+                </Typography>
+              </div>
+              <ToggleButtonGroup
+                size="small"
+                value={selectedType}
+                exclusive
+                onChange={(_, value) => value && setSelectedType(value)}
+              >
+                {donationFilters.map((filter) => (
+                  <ToggleButton key={filter.value} value={filter.value}>
+                    {filter.icon}
+                    <Typography variant="caption" ml={1}>
+                      {filter.label}
+                    </Typography>
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Stack>
+
+            <Grid container spacing={2}>
+              {availableDonations.length === 0 && (
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary">
+                    No donations of this type right now. Try another filter or refresh shortly.
+                  </Typography>
+                </Grid>
+              )}
+              {availableDonations.map((donation) => (
+                <Grid item xs={12} key={donation.id}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Stack direction="row" justifyContent="space-between">
+                        <div>
+                          <Typography variant="h6">{donation.foodName}</Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            {donation.description || 'No extra details provided.'}
+                          </Typography>
+                          <Stack direction="row" spacing={2} flexWrap="wrap">
+                            <Chip label={`${donation.quantity} meals`} size="small" />
+                            <Chip
+                              label={`Expires ${dayjs(donation.expiryDate).fromNow()}`}
+                              size="small"
+                              color="warning"
+                            />
+                          </Stack>
+                        </div>
+                        <Typography variant="body2" color="text.secondary">
+                          {donation.address}
+                        </Typography>
+                      </Stack>
+                    </CardContent>
+                    <CardActions sx={{ justifyContent: 'flex-end', px: 3, pb: 2 }}>
+                      <Button onClick={() => handleRequestDonation(donation.id)} variant="contained">
+                        Request pickup
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={5}>
+          <Paper elevation={0} sx={{ p: 3, height: '100%' }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+              <div>
+                <Typography variant="h6">My request timeline</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Track assignment status and volunteer partners.
+                </Typography>
+              </div>
+              <Button size="small" onClick={loadMyRequests}>
+                Refresh
+              </Button>
+            </Stack>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Meal</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Volunteer</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {myRequests.map((request) => (
+                  <TableRow key={request.id}>
+                    <TableCell>
+                      <Typography variant="subtitle2">{request.donation?.foodName}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Placed {dayjs(request.createdAt).format('MMM DD, HH:mm')}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={request.status}
+                        size="small"
+                        color={statusColor(request.status)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {request.assignedVolunteer?.fullName || (
+                        <Chip label="Awaiting volunteer" size="small" />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+        </Grid>
+      </Grid>
+    </PanelLayout>
+  );
+};
+
+export default NGOPanel;
+
