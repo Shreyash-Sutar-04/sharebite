@@ -23,32 +23,44 @@ import StatCard from '../Common/StatCard';
 import { useAuth } from '../../context/AuthContext';
 import { Agriculture, Recycling } from '@mui/icons-material';
 
-const CompostPanel = () => {
+const CompostPanel = ({ darkMode, setDarkMode }) => {
   const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
   const [availableDonations, setAvailableDonations] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
 
   useEffect(() => {
-    loadAvailableDonations();
-    loadMyRequests();
-  }, []);
+    if (user && user.userId) {
+      loadAvailableDonations();
+      loadMyRequests();
+    }
+  }, [user]);
 
   const loadAvailableDonations = async () => {
+    if (!user || !user.token) return;
     try {
       const response = await api.get('/donations/available/COMPOST');
-      setAvailableDonations(response.data);
-    } catch {
-      enqueueSnackbar('Unable to fetch compost-ready batches.', { variant: 'error' });
+      setAvailableDonations(response.data || []);
+    } catch (err) {
+      // Don't show error for 401/403 - might be user not approved yet
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        enqueueSnackbar('Unable to fetch compost-ready batches.', { variant: 'error' });
+      }
+      setAvailableDonations([]);
     }
   };
 
   const loadMyRequests = async () => {
+    if (!user || !user.token || !user.userId) return;
     try {
       const response = await api.get(`/requests/requester/${user.userId}`);
-      setMyRequests(response.data);
-    } catch {
-      enqueueSnackbar('Unable to fetch your pickups.', { variant: 'error' });
+      setMyRequests(response.data || []);
+    } catch (err) {
+      // Don't show error for 401/403 - might be user not approved yet
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        enqueueSnackbar('Unable to fetch your pickups.', { variant: 'error' });
+      }
+      setMyRequests([]);
     }
   };
 
@@ -99,6 +111,8 @@ const CompostPanel = () => {
     <PanelLayout
       title="Compost & Circularity Hub"
       subtitle="Claim expired batches and close the loop on food waste."
+      darkMode={darkMode}
+      setDarkMode={setDarkMode}
     >
       <Grid container spacing={3} sx={{ mb: 3 }}>
         {stats.map((item) => (

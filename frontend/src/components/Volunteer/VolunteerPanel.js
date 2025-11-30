@@ -35,7 +35,7 @@ const VolunteerPanel = ({ darkMode, setDarkMode }) => {
   const [client, setClient] = useState(null);
 
   useEffect(() => {
-    if (user && user.userId) {
+    if (user && user.userId && user.token) {
       loadRequests();
       loadMyRequests();
       loadPoints();
@@ -66,25 +66,33 @@ const VolunteerPanel = ({ darkMode, setDarkMode }) => {
   };
 
   const loadRequests = async () => {
+    if (!user || !user.token) return;
     try {
       const response = await api.get('/requests');
       setRequests((response.data || []).filter((r) => r.status === 'PENDING' || r.status === 'ACCEPTED'));
     } catch (err) {
       console.error('Error loading requests:', err);
-      const errorMessage = err.response?.data?.message || 'Unable to load open pickups.';
-      enqueueSnackbar(errorMessage, { variant: 'error' });
+      // Don't show error for 401/403 - might be user not approved yet
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        const errorMessage = err.response?.data?.message || 'Unable to load open pickups.';
+        enqueueSnackbar(errorMessage, { variant: 'error' });
+      }
       setRequests([]);
     }
   };
 
   const loadMyRequests = async () => {
+    if (!user || !user.token || !user.userId) return;
     try {
-      const response = await api.get(`/requests/volunteer/${user?.userId}`);
+      const response = await api.get(`/requests/volunteer/${user.userId}`);
       setMyRequests(response.data || []);
     } catch (err) {
       console.error('Error loading my requests:', err);
-      const errorMessage = err.response?.data?.message || 'Unable to load your deliveries.';
-      enqueueSnackbar(errorMessage, { variant: 'error' });
+      // Don't show error for 401/403 - might be user not approved yet
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        const errorMessage = err.response?.data?.message || 'Unable to load your deliveries.';
+        enqueueSnackbar(errorMessage, { variant: 'error' });
+      }
       setMyRequests([]);
     }
   };

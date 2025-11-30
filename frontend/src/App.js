@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import HomePage from './components/Home/HomePage';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import AdminPanel from './components/Admin/AdminPanel';
@@ -13,6 +14,7 @@ import ProtectedRoute from './components/Common/ProtectedRoute';
 const App = ({ darkMode, setDarkMode }) => (
   <Router>
     <Routes>
+      <Route path="/" element={<HomePage darkMode={darkMode} setDarkMode={setDarkMode} />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route
@@ -63,7 +65,6 @@ const App = ({ darkMode, setDarkMode }) => (
           </ProtectedRoute>
         }
       />
-      <Route path="/" element={<Navigate to="/login" replace />} />
     </Routes>
   </Router>
 );

@@ -34,7 +34,7 @@ const donationFilters = [
   { value: 'COMPOST', label: 'Compost', icon: <Agriculture fontSize="small" /> },
 ];
 
-const NGOPanel = () => {
+const NGOPanel = ({ darkMode, setDarkMode }) => {
   const { user } = useAuth();
   const [availableDonations, setAvailableDonations] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
@@ -42,28 +42,45 @@ const NGOPanel = () => {
   const { enqueueSnackbar } = useSnackbar();
 
   useEffect(() => {
-    loadAvailableDonations();
-  }, [selectedType]);
+    if (user && user.userId && user.token) {
+      loadAvailableDonations();
+      loadMyRequests();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedType, user]);
 
   useEffect(() => {
-    loadMyRequests();
-  }, []);
+    if (user && user.userId && user.token) {
+      loadMyRequests();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const loadAvailableDonations = async () => {
+    if (!user || !user.token) return;
     try {
       const response = await api.get(`/donations/available/${selectedType}`);
-      setAvailableDonations(response.data);
+      setAvailableDonations(response.data || []);
     } catch (err) {
-      enqueueSnackbar('Unable to fetch donations at the moment.', { variant: 'error' });
+      // Don't show error for 401/403 - might be user not approved yet
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        enqueueSnackbar('Unable to fetch donations at the moment.', { variant: 'error' });
+      }
+      setAvailableDonations([]);
     }
   };
 
   const loadMyRequests = async () => {
+    if (!user || !user.token || !user.userId) return;
     try {
       const response = await api.get(`/requests/requester/${user.userId}`);
-      setMyRequests(response.data);
+      setMyRequests(response.data || []);
     } catch (err) {
-      enqueueSnackbar('Unable to load your request history.', { variant: 'error' });
+      // Don't show error for 401/403 - might be user not approved yet
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        enqueueSnackbar('Unable to load your request history.', { variant: 'error' });
+      }
+      setMyRequests([]);
     }
   };
 
@@ -104,6 +121,8 @@ const NGOPanel = () => {
     <PanelLayout
       title="NGO Operations Hub"
       subtitle="Match surplus meals with shelters, missions, and feeding drives."
+      darkMode={darkMode}
+      setDarkMode={setDarkMode}
     >
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} md={4}>

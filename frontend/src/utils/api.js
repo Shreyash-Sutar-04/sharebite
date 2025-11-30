@@ -13,17 +13,24 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   // Always get fresh token from localStorage
   const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  } else {
-    // Remove authorization header if no token
-    delete config.headers.Authorization;
-  }
   
   // For FormData (multipart/form-data), don't set Content-Type manually
   // Let the browser set it with the proper boundary
   if (config.data instanceof FormData) {
+    // Remove Content-Type to let browser set it with boundary
     delete config.headers['Content-Type'];
+    // But ensure Authorization is still set
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } else {
+    // For regular requests, set both headers normally
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      // Remove authorization header if no token
+      delete config.headers.Authorization;
+    }
   }
   
   // Debug logging (can be removed in production)
@@ -32,7 +39,8 @@ api.interceptors.request.use((config) => {
       url: config.url,
       method: config.method,
       hasToken: !!token,
-      hasAuthHeader: !!config.headers.Authorization
+      hasAuthHeader: !!config.headers.Authorization,
+      isFormData: config.data instanceof FormData
     });
   }
   
@@ -61,24 +69,35 @@ api.interceptors.response.use(
                          window.location.pathname.includes('/register');
     
     // Handle 401 Unauthorized and 403 Forbidden - token expired, invalid, or missing
+    // Only logout if it's clearly an authentication error, not a permission issue
     if ((status === 401 || status === 403) && !isAuthEndpoint && !isDatabaseError && !isServerError) {
       const token = localStorage.getItem('token');
       
       // Only logout if:
       // 1. We have a token (means it was sent but rejected)
       // 2. We're not on auth pages
-      // 3. The error message clearly indicates authentication failure
+      // 3. The error message clearly indicates authentication failure (not just permission)
+      // 4. It's not a user status issue (PENDING users might get 403 but shouldn't be logged out)
       if (token && !isOnAuthPage) {
         const errorMessage = errorData?.message?.toLowerCase() || '';
-        const isAuthError = errorType === 'UNAUTHORIZED' || 
-                           errorType === 'FORBIDDEN' ||
-                           errorMessage.includes('token') ||
-                           errorMessage.includes('authentication') ||
-                           errorMessage.includes('unauthorized') ||
-                           errorMessage.includes('forbidden') ||
-                           errorMessage.includes('login');
+        const isAuthError = (errorType === 'UNAUTHORIZED' || errorType === 'FORBIDDEN') &&
+                           (errorMessage.includes('token') ||
+                            errorMessage.includes('authentication') ||
+                            errorMessage.includes('unauthorized') ||
+                            errorMessage.includes('forbidden') ||
+                            errorMessage.includes('login') ||
+                            errorMessage.includes('expired') ||
+                            errorMessage.includes('invalid'));
         
-        if (isAuthError) {
+        // Don't logout for permission errors (like user not approved yet)
+        const isPermissionError = errorMessage.includes('permission') ||
+                                  errorMessage.includes('not approved') ||
+                                  errorMessage.includes('pending') ||
+                                  errorMessage.includes('access denied') ||
+                                  requestUrl.includes('/users/pending') ||
+                                  requestUrl.includes('/users/');
+        
+        if (isAuthError && !isPermissionError) {
           console.warn('Authentication failed, clearing session:', {
             status: status,
             url: requestUrl,
@@ -97,8 +116,8 @@ api.interceptors.response.use(
             window.location.href = '/login';
           }, 100);
         } else {
-          // 401/403 but not clearly an auth error - might be permission issue
-          console.warn('Got 401/403 but not clearing session - might be permission issue:', {
+          // 401/403 but not clearly an auth error - might be permission issue or user not approved
+          console.warn('Got 401/403 but not clearing session - might be permission/user status issue:', {
             status: status,
             url: requestUrl,
             message: errorData?.message

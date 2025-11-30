@@ -57,7 +57,7 @@ const HotelPanel = ({ darkMode, setDarkMode }) => {
   const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
-    if (user && user.userId) {
+    if (user && user.userId && user.token) {
       refreshData();
     }
   }, [user]);
@@ -68,13 +68,17 @@ const HotelPanel = ({ darkMode, setDarkMode }) => {
   };
 
   const loadDonations = async () => {
+    if (!user || !user.token || !user.userId) return;
     try {
-      const response = await api.get(`/donations/donor/${user?.userId}`);
+      const response = await api.get(`/donations/donor/${user.userId}`);
       setDonations(response.data || []);
     } catch (err) {
       console.error('Error loading donations:', err);
-      const errorMessage = err.response?.data?.message || 'Unable to fetch donations.';
-      enqueueSnackbar(errorMessage, { variant: 'error' });
+      // Don't show error for 401/403 - might be user not approved yet
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        const errorMessage = err.response?.data?.message || 'Unable to fetch donations.';
+        enqueueSnackbar(errorMessage, { variant: 'error' });
+      }
       setDonations([]);
     }
   };
@@ -114,7 +118,8 @@ const HotelPanel = ({ darkMode, setDarkMode }) => {
     if (!imageFile) return null;
     
     // Verify user is authenticated
-    if (!user || !user.token) {
+    const token = localStorage.getItem('token');
+    if (!user || !token) {
       enqueueSnackbar('You must be logged in to upload images.', { variant: 'error' });
       return null;
     }
@@ -124,10 +129,21 @@ const HotelPanel = ({ darkMode, setDarkMode }) => {
       const formData = new FormData();
       formData.append('file', imageFile);
       
-      // Don't set Content-Type header - let axios/browser set it automatically with boundary
-      // The interceptor will ensure Authorization header is included
-      console.log('Uploading image with token:', user.token ? 'Present' : 'Missing');
-      const response = await api.post('/files/upload', formData);
+      // Ensure token is fresh from localStorage
+      const freshToken = localStorage.getItem('token');
+      if (!freshToken) {
+        enqueueSnackbar('Your session has expired. Please log in again.', { variant: 'error' });
+        setUploadingImage(false);
+        return null;
+      }
+      
+      // Make the upload request - the interceptor will add the Authorization header
+      const response = await api.post('/files/upload', formData, {
+        headers: {
+          // Don't set Content-Type - let browser set it with boundary for FormData
+          // Authorization will be added by the interceptor
+        },
+      });
       
       return response.data.url;
     } catch (err) {
@@ -139,7 +155,14 @@ const HotelPanel = ({ darkMode, setDarkMode }) => {
       
       // Handle different error types
       if (err.response?.status === 401 || err.response?.status === 403) {
-        enqueueSnackbar('Authentication failed. Your session may have expired. Please try logging in again.', { variant: 'error' });
+        // Check if it's really an auth error or just permission issue
+        const errorData = err.response?.data;
+        const errorMsg = (errorData?.message || '').toLowerCase();
+        if (errorMsg.includes('token') || errorMsg.includes('expired') || errorMsg.includes('invalid')) {
+          enqueueSnackbar('Your session has expired. Please log in again.', { variant: 'error' });
+        } else {
+          enqueueSnackbar('Unable to upload. Please ensure your account is approved.', { variant: 'warning' });
+        }
       } else if (err.response?.status === 500) {
         enqueueSnackbar('Server error occurred. Please try again later.', { variant: 'error' });
       } else {
