@@ -14,7 +14,9 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -25,8 +27,8 @@ public class User {
     @Column(unique = true, nullable = false, length = 100)
     private String email;
 
-    @Column(nullable = false)
     @JsonIgnore
+    @Column(nullable = false)
     private String password;
 
     @Column(name = "full_name", nullable = false, length = 100)
@@ -38,7 +40,6 @@ public class User {
     private String address;
 
     private Double latitude;
-
     private Double longitude;
 
     @Enumerated(EnumType.STRING)
@@ -74,4 +75,3 @@ public class User {
         PENDING, APPROVED, REJECTED
     }
 }
-

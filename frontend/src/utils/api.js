@@ -4,27 +4,37 @@ const API_BASE_URL = 'http://localhost:8080/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  // Don't set default Content-Type here - let it be set per request
+  // For JSON requests, interceptor or request will set it
+  // For FormData, browser will set it with boundary
 });
 
 // Add token to requests
 api.interceptors.request.use((config) => {
   // Always get fresh token from localStorage
   const token = localStorage.getItem('token');
-  
+  console.log("token sent to backend", token);
   // For FormData (multipart/form-data), don't set Content-Type manually
   // Let the browser set it with the proper boundary
   if (config.data instanceof FormData) {
     // Remove Content-Type to let browser set it with boundary
+    // This is critical - browser must set Content-Type with boundary for multipart/form-data
     delete config.headers['Content-Type'];
-    // But ensure Authorization is still set
+    delete config.headers.common?.['Content-Type'];
+    
+    // Explicitly set Authorization header for FormData requests
+    // Don't rely on default headers - set it directly
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      delete config.headers.Authorization;
     }
   } else {
     // For regular requests, set both headers normally
+    // Set Content-Type for JSON requests if not already set
+    if (!config.headers['Content-Type']) {
+      config.headers['Content-Type'] = 'application/json';
+    }
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     } else {
@@ -39,8 +49,11 @@ api.interceptors.request.use((config) => {
       url: config.url,
       method: config.method,
       hasToken: !!token,
+      tokenLength: token?.length || 0,
       hasAuthHeader: !!config.headers.Authorization,
-      isFormData: config.data instanceof FormData
+      authHeaderValue: config.headers.Authorization ? config.headers.Authorization.substring(0, 20) + '...' : 'none',
+      isFormData: config.data instanceof FormData,
+      contentType: config.headers['Content-Type']
     });
   }
   

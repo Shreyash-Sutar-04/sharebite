@@ -117,10 +117,15 @@ const HotelPanel = ({ darkMode, setDarkMode }) => {
   const uploadImage = async () => {
     if (!imageFile) return null;
     
-    // Verify user is authenticated
+    // Verify user is authenticated - always check localStorage directly
     const token = localStorage.getItem('token');
-    if (!user || !token) {
+    if (!token) {
       enqueueSnackbar('You must be logged in to upload images.', { variant: 'error' });
+      return null;
+    }
+    
+    if (!user || !user.userId) {
+      enqueueSnackbar('User information is missing. Please log in again.', { variant: 'error' });
       return null;
     }
     
@@ -129,7 +134,7 @@ const HotelPanel = ({ darkMode, setDarkMode }) => {
       const formData = new FormData();
       formData.append('file', imageFile);
       
-      // Ensure token is fresh from localStorage
+      // Double-check token is still valid before upload
       const freshToken = localStorage.getItem('token');
       if (!freshToken) {
         enqueueSnackbar('Your session has expired. Please log in again.', { variant: 'error' });
@@ -137,19 +142,25 @@ const HotelPanel = ({ darkMode, setDarkMode }) => {
         return null;
       }
       
-      // Make the upload request - the interceptor will add the Authorization header
-      const response = await api.post('/files/upload', formData, {
-        headers: {
-          // Don't set Content-Type - let browser set it with boundary for FormData
-          // Authorization will be added by the interceptor
-        },
-      });
+      // Make the upload request
+      // The interceptor will:
+      // 1. Get token from localStorage
+      // 2. Set Authorization header
+      // 3. Remove Content-Type to let browser set it with boundary
+      const response = await api.post('/files/upload', formData);
       
       return response.data.url;
     } catch (err) {
       console.error('Error uploading image:', err);
       console.error('Response status:', err.response?.status);
       console.error('Response data:', err.response?.data);
+      console.error('Request config:', {
+        url: err.config?.url,
+        method: err.config?.method,
+        hasAuthHeader: !!err.config?.headers?.Authorization,
+        authHeader: err.config?.headers?.Authorization ? err.config.headers.Authorization.substring(0, 30) + '...' : 'none',
+        isFormData: err.config?.data instanceof FormData
+      });
       
       const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Failed to upload image. Please try again.';
       
@@ -158,7 +169,7 @@ const HotelPanel = ({ darkMode, setDarkMode }) => {
         // Check if it's really an auth error or just permission issue
         const errorData = err.response?.data;
         const errorMsg = (errorData?.message || '').toLowerCase();
-        if (errorMsg.includes('token') || errorMsg.includes('expired') || errorMsg.includes('invalid')) {
+        if (errorMsg.includes('token') || errorMsg.includes('expired') || errorMsg.includes('invalid') || errorMsg.includes('authentication') || errorMsg.includes('unauthorized')) {
           enqueueSnackbar('Your session has expired. Please log in again.', { variant: 'error' });
         } else {
           enqueueSnackbar('Unable to upload. Please ensure your account is approved.', { variant: 'warning' });

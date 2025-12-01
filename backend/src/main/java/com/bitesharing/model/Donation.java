@@ -14,14 +14,22 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Donation {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "donor_id", nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password"})
+    @JsonIgnoreProperties({
+            "hibernateLazyInitializer",
+            "handler",
+            "password",
+            "userPoints",
+            "donations"
+    })  // ✅ FIX 2 — ignore lazy fields inside donor
     private User donor;
 
     @Column(name = "food_name", nullable = false, length = 200)
@@ -34,7 +42,7 @@ public class Donation {
     private Integer quantity;
 
     @Column(name = "expiry_date", nullable = false)
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime expiryDate;
 
     @Enumerated(EnumType.STRING)
@@ -82,4 +90,3 @@ public class Donation {
         PENDING, ACCEPTED, PICKED_UP, DELIVERED, COMPOSTED, EXPIRED
     }
 }
-

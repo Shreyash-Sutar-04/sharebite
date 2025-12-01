@@ -47,7 +47,8 @@ public class AuthService {
 
         user = userRepository.save(user);
 
-        String token = jwtUtil.generateToken(user.getUsername());
+        String token = jwtUtil.generateToken(user);
+
         return new AuthResponse(token, user.getUsername(), user.getUserType().name(), user.getId());
     }
 
@@ -63,7 +64,8 @@ public class AuthService {
             throw new RuntimeException("Account not approved yet");
         }
 
-        String token = jwtUtil.generateToken(user.getUsername());
+        String token = jwtUtil.generateToken(user);
+
         return new AuthResponse(token, user.getUsername(), user.getUserType().name(), user.getId());
     }
 }

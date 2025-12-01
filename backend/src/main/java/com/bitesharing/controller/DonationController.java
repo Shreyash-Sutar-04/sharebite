@@ -3,6 +3,7 @@ package com.bitesharing.controller;
 import com.bitesharing.dto.ErrorResponse;
 import com.bitesharing.model.Donation;
 import com.bitesharing.service.DonationService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
@@ -24,9 +25,18 @@ public class DonationController {
     @PostMapping
     public ResponseEntity<?> createDonation(
             @RequestBody Donation donation,
-            @RequestParam Long donorId) {
+            @RequestParam Long donorId,
+            HttpServletRequest request // <-- ADD THIS
+    ) {
         try {
+
+            System.out.println("======= DONATION CONTROLLER DEBUG =======");
+            System.out.println("Authorization header received:");
+            System.out.println(request.getHeader("Authorization"));
+            System.out.println("========================================");
+
             return ResponseEntity.ok(donationService.createDonation(donation, donorId));
+
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
                     .body(new ErrorResponse(e.getMessage(), "DONATION_ERROR"));
@@ -36,6 +46,7 @@ public class DonationController {
                     .body(new ErrorResponse("An error occurred while creating donation: " + e.getMessage(), "INTERNAL_ERROR"));
         }
     }
+
 
     @GetMapping
     public ResponseEntity<?> getAllDonations() {

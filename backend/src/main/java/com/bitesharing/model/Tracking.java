@@ -31,6 +31,7 @@ public class Tracking {
     @Column(nullable = false)
     private Double longitude;
 
+
     @Column(updatable = false)
     private LocalDateTime timestamp;
 

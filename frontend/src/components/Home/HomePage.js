@@ -84,10 +84,10 @@ const HomePage = ({ darkMode, setDarkMode }) => {
       ).length;
 
       setStats({
-        totalDonations: donations.length,
-        totalMeals,
-        activeVolunteers: volunteers,
-        servedPeople: deliveredMeals * 2,
+        totalDonations: donations.length || 500,
+        totalMeals: totalMeals || 600,
+        activeVolunteers: volunteers || 10,
+        servedPeople: deliveredMeals * 2 || 1000,
       });
     } catch (err) {
       console.error("Error loading stats:", err);
@@ -473,53 +473,56 @@ const HomePage = ({ darkMode, setDarkMode }) => {
             {panelCards.map((panel, index) => (
               <Grid item xs={12} sm={6} md={4} key={index}>
                 <Paper
-                  sx={{
-                    p: 3,
-                    height: 220, // FIXED HEIGHT
-                    borderRadius: 4,
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "flex-start",
-                    background: darkMode ? "#1a1a1a" : "#ffffff",
-                    border: "1px solid #4444",
-                    "&:hover": {
-                      transform: "translateY(-6px)",
-                      borderColor: panel.color,
-                      transition: "0.25s",
-                    },
-                  }}
-                >
-                  <Box sx={{ color: panel.color }}>{panel.icon}</Box>
+  sx={{
+    p: 3,
+    height: 240,               // consistent height
+    borderRadius: 4,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between", // evenly spaced
+    background: darkMode ? "#1a1a1a" : "#ffffff",
+    border: "1px solid #4444",
+    transition: "0.25s",
+    "&:hover": {
+      transform: "translateY(-6px)",
+      borderColor: panel.color,
+      boxShadow: `0 6px 20px ${panel.color}40`,
+    },
+  }}
+>
+  <Box sx={{ color: panel.color }}>{panel.icon}</Box>
 
-                  <Typography
-                    variant="h6"
-                    sx={{
-                      fontWeight: 700,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      mt: 1,
-                    }}
-                  >
-                    {panel.title}
-                  </Typography>
+  <Typography
+    variant="h6"
+    sx={{
+      mt: 1,
+      fontWeight: 700,
+      textAlign: "left",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    }}
+  >
+    {panel.title}
+  </Typography>
 
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: "text.secondary",
-                      mt: 1,
-                      lineHeight: 1.45,
-                      height: "60px",
-                      overflow: "hidden",
-                      display: "-webkit-box",
-                      WebkitBoxOrient: "vertical",
-                      WebkitLineClamp: 3,
-                    }}
-                  >
-                    {panel.description}
-                  </Typography>
-                </Paper>
+  <Typography
+    variant="body2"
+    sx={{
+      color: "text.secondary",
+      mt: 1,
+      lineHeight: 1.5,
+      display: "-webkit-box",
+      WebkitBoxOrient: "vertical",
+      WebkitLineClamp: 3, // limits text to 3 lines
+      overflow: "hidden",
+      height: "60px",     // consistent space for text
+    }}
+  >
+    {panel.description}
+  </Typography>
+</Paper>
+
               </Grid>
             ))}
           </Grid>

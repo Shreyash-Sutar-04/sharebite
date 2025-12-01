@@ -1,5 +1,6 @@
 package com.bitesharing.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -12,13 +13,22 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class PointsHistory {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({
+            "password",
+            "hibernateLazyInitializer",
+            "handler",
+            "donations",
+            "userPoints"
+    })
     private User user;
 
     @Column(nullable = false)
@@ -46,4 +56,3 @@ public class PointsHistory {
         DONATION, DELIVERY, COMPOST, BADGE
     }
 }
-
